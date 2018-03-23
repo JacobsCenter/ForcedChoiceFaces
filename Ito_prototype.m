@@ -1,7 +1,8 @@
- % Clear the workspace
+% Clear the workspace
 close all;
 clearvars;
 sca;
+
 Screen('Preference', 'SkipSyncTests', 2)
 % Setup PTB with some default values
 PsychDefaultSetup(2); 
@@ -9,7 +10,7 @@ PsychDefaultSetup(2);
 
 ParticipantID = cell2mat(inputdlg("Participant ID"));
 
-
+ListenChar(-1);
 imageFolder = 'faces';
 imgArray = dir(fullfile(imageFolder,'*.jpg'));
 imgList = {imgArray(:).name};
@@ -21,7 +22,7 @@ randomizedTrials = randperm(nTrials);
 % Set the screen number to the external secondary monitor if there is one
 % connected
 screenNumber = max(Screen('Screens'));
-
+HideCursor(screenNumber);
 % Define black, white and grey
 white = WhiteIndex(screenNumber);
 grey = white / 2;
@@ -35,6 +36,8 @@ Screen('Flip', window);
 
 % Query the frame duration
 ifi = Screen('GetFlipInterval', window);
+%screen size in pixels
+[screenXpixels, screenYpixels] = Screen('WindowSize', window);
 
 % Set the text size
 Screen('TextSize', window, 40);
@@ -89,6 +92,7 @@ waitframes = 1;
 % Define the keyboard keys that are listened for. We will be using the left
 % and right arrow keys as response keys for the task and the escape key as
 % a exit/reset key
+
 escapeKey = KbName('ESCAPE');
 leftKey = KbName('LeftArrow');
 rightKey = KbName('RightArrow');
@@ -99,11 +103,23 @@ rightKey = KbName('RightArrow');
 %----------------------------------------------------------------------
     % If this is the first trial we present a start screen and wait for a
     % key-press
-DrawFormattedText(window, 'You will see a series of faces in quick succession.\n Each face will either look angry or happy.\n immediately after a face disappears, press <- (angry) or -> (sad) \n\n\n\nPress Arrow Key To Begin', 'center', 'center', black);
+DrawFormattedText(window, ...
+    'In dieser Aufgabe erscheinen Gesichter mehrerer Personen. \n\nEntscheide, ob die Person wütend oder glücklich ist.\nIst sie glücklich, drücke die LINKE Pfeiltaste.\nIst sie wütend, drücke die RECHTE Pfeiltaste.\n\n -- Weiter mit Leertaste -- ',...
+    'center', 'center', black);
 Screen('Flip', window);
 KbStrokeWait;
-  
+DrawFormattedText(window, ...
+    'Antworte schnell und spontan.\n\nIn einigen Fällen wird nicht eindeutig sein, ob die Person wütend oder glücklich ist.\nWähle die Emotion, die am Ehesten zutrifft.\n\n -- Weiter mit Leertaste -- ',...
+    'center', 'center', black);
+Screen('Flip', window);
+KbStrokeWait;
+DrawFormattedText(window, ...
+    '-- Drücke die Leertaste, um zu starten --',...
+    'center', screenYpixels-100, black);
+Screen('Flip', window);
+KbStrokeWait;
 % Animation loop: we loop for the total number of trials
+Screen('TextSize', window, 50);
 for trial = 1:nTrials
 
     %theAngle = (randomizedTrials(trial)-6) * 0.1;
@@ -123,6 +139,10 @@ for trial = 1:nTrials
     % time stamp
     for frame = 1:isiTimeFrames - 1
 
+       
+        %Draw the happy and angry indicators
+        DrawFormattedText(window,'WÜTEND','right', screenYpixels-100, black, [], [], [], [], [], [100, 100, screenXpixels-100, screenYpixels-100]);
+        DrawFormattedText(window,'GLÜCKLICH',100, screenYpixels-100, black);
         % Draw the fixation point
         Screen('DrawDots', window, [xCenter; yCenter], 10, black, [], 2);
 
@@ -139,7 +159,9 @@ for trial = 1:nTrials
         Screen('DrawTexture', window, imageTexture, [], [], 0);
         % Set the right blend function for drawing the gabors
         Screen('BlendFunction', window, 'GL_ONE', 'GL_ZERO');
-
+        %Draw the happy and angry indicators
+        DrawFormattedText(window,'WÜTEND','right', screenYpixels-100, black, [], [], [], [], [], [100, 100, screenXpixels-100, screenYpixels-100]);
+        DrawFormattedText(window,'GLÜCKLICH',100, screenYpixels-100, black);
         % Flip to the screen
         vbl = Screen('Flip', window, vbl + (waitframes - 0.5) * ifi);
     end
@@ -150,7 +172,9 @@ for trial = 1:nTrials
 
     % Draw the fixation point
     Screen('DrawDots', window, [xCenter; yCenter], 10, black, [], 2);
-    
+    %Draw the happy and angry indicators
+    DrawFormattedText(window,'WÜTEND','right', screenYpixels-100, black, [], [], [], [], [], [100, 100, screenXpixels-100, screenYpixels-100]);
+    DrawFormattedText(window,'GLÜCKLICH',100, screenYpixels-100, black);
     % Flip to the screen
     vbl = Screen('Flip', window, vbl + (waitframes - 0.5) * ifi);
 
@@ -159,7 +183,7 @@ for trial = 1:nTrials
     % a "happy" response. You can also press escape if you want to exit the
     % programm
     % Set the text size
-    Screen('TextSize', window, 50);
+  
     
     respToBeMade = true;
     tic;
@@ -167,11 +191,15 @@ for trial = 1:nTrials
         if toc >= 2
             Screen('DrawDots', window, [xCenter; yCenter], 10, black, [], 2);
             DrawFormattedText(window, '\n\n\n\n\n\nplease give a response', 'center', 'center', black);
+            %Draw the happy and angry indicators
+            DrawFormattedText(window,'WÜTEND','right', screenYpixels-100, black, [], [], [], [], [], [100, 100, screenXpixels-100, screenYpixels-100]);
+            DrawFormattedText(window,'GLÜCKLICH',100, screenYpixels-100, black);
             Screen('Flip', window);
         end
         [keyIsDown,secs, keyCode] = KbCheck;
         if keyCode(escapeKey)
             ShowCursor;
+            ListenChar(0);
             sca;
             return
         elseif keyCode(leftKey)
@@ -215,4 +243,5 @@ ylabel('Performance');
 title('Psychometric function');
 writetable(data, ParticipantID)
 % Clean up
+ListenChar(0);
 sca;
