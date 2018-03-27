@@ -6,15 +6,27 @@ sca;
 Screen('Preference', 'SkipSyncTests', 2)
 % Setup PTB with some default values
 PsychDefaultSetup(2); 
-%PsychDebugWindowConfiguration( );
+PsychDebugWindowConfiguration( );
 
 ParticipantID = cell2mat(inputdlg("Participant ID"));
-
-ListenChar(-1);
-imageFolder = 'faces';
+imgscale = 0.5;
+%ListenChar(-1);
+imageFolder = '101 faces';
 imgArray = dir(fullfile(imageFolder,'*.jpg'));
 imgList = {imgArray(:).name};
 nTrials = length(imgList);
+%Stimulus values
+imgArr = cell2mat(imgList');
+%extacting stimulus values from the name.
+preStimValues = str2num(imgArr(:,7:9))';
+%standardizing stim values to 0-100.
+stimValues = (preStimValues-min(preStimValues)) / (max(preStimValues)-min(preStimValues)) * 100;
+
+
+%Reading images
+
+%img = imread(fullfile(imageFolder,imgArr(:)));
+
 
 % Randomize the trial list
 randomizedTrials = randperm(nTrials);
@@ -48,26 +60,24 @@ topPriorityLevel = MaxPriority(window);
 % Get the centre coordinate of the window
 [xCenter, yCenter] = RectCenter(windowRect);
 
-%Stimulus values
-imgArr = cell2mat(imgList');
-stimValues = (str2num(imgArr(:,4:5))'-6)*0.1;
+
 
 % Now we set the number of times we want to do each condition, then make a
 % full condition vector and then shuffle it. This will randomly order the
 % orientation we present our Gabor with on each trial.
-numRepeats = 1;
+%numRepeats = 1;
 %condVector = Shuffle(repmat(stimValues, 1, numRepeats));
 
 % Calculate the number of trials
 %numTrials = numel(condVector);
 
 % Make a vector to record the response for each trial
-respVector = zeros(1, nTrials);
+respVector = zeros(1, nTrials);   
 
 % Make a vector to count how many times we present each stimulus. This is a
 % good check to make sure we have done things right and helps us when we
 % input the data to plot anf fit our psychometric function
-countVector = zeros(1, nTrials);
+%countVector = zeros(1, nTrials);
 
 %----------------------------------------------------------------------
 %                       Timing Information
@@ -153,10 +163,10 @@ for trial = 1:nTrials
     % Now we draw the Face
     for frame = 1:presTimeFrames
         file = imgList{randomizedTrials(trial)};
-        img = imread(fullfile(imageFolder,file));
-        imageTexture = Screen('MakeTexture', window, img);
-              
-        Screen('DrawTexture', window, imageTexture, [], [], 0);
+        fimg = imread(fullfile(imageFolder,file));
+        imageTexture = Screen('MakeTexture', window, fimg);
+        [s1, s2, s3] = size(fimg);  
+        Screen('DrawTexture', window, imageTexture, [], [screenXpixels/2 - s2*imgscale screenYpixels/2 - s1*imgscale  xCenter+s2*imgscale yCenter+s1*imgscale], 0);
         % Set the right blend function for drawing the gabors
         Screen('BlendFunction', window, 'GL_ONE', 'GL_ZERO');
         %Draw the happy and angry indicators
@@ -182,7 +192,6 @@ for trial = 1:nTrials
     % The left arrow key signals an "angry" response and the right arrow key
     % a "happy" response. You can also press escape if you want to exit the
     % programm
-    % Set the text size
   
     
     respToBeMade = true;
@@ -228,17 +237,17 @@ dataray = table2array(data);
 %preparing data for plotting
 values = str2double(dataray(:,2:3));
 
-mResp = zeros(11,2);
-for intensity = 1:11
-    insy = (intensity - 6) * 0.1;
-    index = abs(values(:,1) - insy) < eps;
+mResp = zeros(101,2);
+for intensity = 1:101
+ %   insy = (intensity - 6) * 0.1;
+    index = abs(values(:,1) - (intensity-1)) < eps;
     %index = (values(:,1) == exp);
-    mResp(intensity, :) = [insy, mean(values(index, 2))];
+    mResp(102-intensity, :) = [intensity-1, mean(values(index, 2))];
 end
     
 plot(mResp(:,2), 'ro-', 'MarkerFaceColor', 'r');
-%axis([min(mResp(:, 2)) max(mResp(:, 2)) 0 1]);
-xlabel('Angry --- Happy');
+axis([min(mResp(:, 2)) max(mResp(:, 2)) 0 100]);
+xlabel('Happy --- Angry');
 ylabel('Performance');
 title('Psychometric function');
 writetable(data, ParticipantID)
