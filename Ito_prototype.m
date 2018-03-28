@@ -1,32 +1,46 @@
+%%Setup
+
 % Clear the workspace
 close all;
 clearvars;
 sca;
 
+%Set to '2' for testing purposes. Change to '0' during trials (on windows
+%PC)
 Screen('Preference', 'SkipSyncTests', 2)
+
 % Setup PTB with some default values
 PsychDefaultSetup(2); 
-PsychDebugWindowConfiguration( );
 
-ParticipantID = cell2mat(inputdlg("Participant ID"));
-imgscale = 0.5;
+%makes screen translucent
+%PsychDebugWindowConfiguration( );
+
+%getting ID of participant
+ParticipantID = (cell2mat(inputdlg("Participant ID")));
+while isempty(ParticipantID)
+    ParticipantID = (cell2mat(inputdlg("You need to provide a participant ID:")));
+end
+%scales images
+imgscale = 1;
+
+%deactivate key input to editor
 %ListenChar(-1);
+
+%get folder where images are stored
 imageFolder = '101 faces';
+
+%retrieve image file names
 imgArray = dir(fullfile(imageFolder,'*.jpg'));
 imgList = {imgArray(:).name};
+
+%getting number of trials = number of images in folder
 nTrials = length(imgList);
+
 %Stimulus values
 imgArr = cell2mat(imgList');
-%extacting stimulus values from the name.
 preStimValues = str2num(imgArr(:,7:9))';
 %standardizing stim values to 0-100.
 stimValues = (preStimValues-min(preStimValues)) / (max(preStimValues)-min(preStimValues)) * 100;
-
-
-%Reading images
-
-%img = imread(fullfile(imageFolder,imgArr(:)));
-
 
 % Randomize the trial list
 randomizedTrials = randperm(nTrials);
@@ -159,14 +173,16 @@ for trial = 1:nTrials
         % Flip to the screen
         vbl = Screen('Flip', window, vbl + (waitframes - 0.5) * ifi);
     end
-
+    respToBeMade = true;
+    startIteration(trial) = tic;
     % Now we draw the Face
     for frame = 1:presTimeFrames
+        
         file = imgList{randomizedTrials(trial)};
         fimg = imread(fullfile(imageFolder,file));
         imageTexture = Screen('MakeTexture', window, fimg);
         [s1, s2, s3] = size(fimg);  
-        Screen('DrawTexture', window, imageTexture, [], [screenXpixels/2 - s2*imgscale screenYpixels/2 - s1*imgscale  xCenter+s2*imgscale yCenter+s1*imgscale], 0);
+        Screen('DrawTexture', window, imageTexture, [], [screenXpixels/2 - s2*imgscale/2 screenYpixels/2 - s1*imgscale/2  xCenter+s2*imgscale/2 yCenter+s1*imgscale/2], 0);
         % Set the right blend function for drawing the gabors
         Screen('BlendFunction', window, 'GL_ONE', 'GL_ZERO');
         %Draw the happy and angry indicators
@@ -174,6 +190,25 @@ for trial = 1:nTrials
         DrawFormattedText(window,'GLÜCKLICH',100, screenYpixels-100, black);
         % Flip to the screen
         vbl = Screen('Flip', window, vbl + (waitframes - 0.5) * ifi);
+
+        [keyIsDown,secs, keyCode] = KbCheck;
+        if keyCode(escapeKey)
+            ShowCursor;
+            ListenChar(0);
+            sca;
+            return
+        elseif keyCode(leftKey)
+            respTime(randomizedTrials(trial)) = toc(startIteration(trial));
+            response = 0;
+            respToBeMade = false;
+            break;
+        elseif keyCode(rightKey)
+            respTime(randomizedTrials(trial)) = toc(startIteration(trial));
+            response = 1;
+            respToBeMade = false;
+            break;
+        end
+
     end
 
   
@@ -192,12 +227,10 @@ for trial = 1:nTrials
     % The left arrow key signals an "angry" response and the right arrow key
     % a "happy" response. You can also press escape if you want to exit the
     % programm
-  
-    
-    respToBeMade = true;
-    tic;
+ 
+    waitingtime = tic;
     while respToBeMade
-        if toc >= 2
+        if toc(waitingtime) >= 2
             Screen('DrawDots', window, [xCenter; yCenter], 10, black, [], 2);
             DrawFormattedText(window, '\n\n\n\n\n\nplease give a response', 'center', 'center', black);
             %Draw the happy and angry indicators
@@ -212,12 +245,15 @@ for trial = 1:nTrials
             sca;
             return
         elseif keyCode(leftKey)
-            response = -0.5;
+            respTime(randomizedTrials(trial)) = toc(startIteration(trial));
+            response = 0;
             respToBeMade = false;
         elseif keyCode(rightKey)
-            response = 0.5;
+            respTime(randomizedTrials(trial)) = toc(startIteration(trial));
+            response = 1;
             respToBeMade = false;
         end
+        
     end
 
     % Record the response
@@ -230,7 +266,7 @@ for trial = 1:nTrials
     disp (nrem);
 end  
 imgNames = string(imgArr(randomizedTrials, :));
-data = table(imgNames, stimValues(randomizedTrials)', respVector', 'VariableNames', {'image', 'value', 'response'});
+data = table(imgNames, 100-stimValues(randomizedTrials)', respVector', respTime', 'VariableNames', {'image', 'angerIntensity', 'respondAngry', 'reactionTime'});
 
 figure;
 dataray = table2array(data);
@@ -246,9 +282,9 @@ for intensity = 1:101
 end
     
 plot(mResp(:,2), 'ro-', 'MarkerFaceColor', 'r');
-axis([min(mResp(:, 2)) max(mResp(:, 2)) 0 100]);
+axis([0 100 min(mResp(:, 2)) max(mResp(:, 2))]);
 xlabel('Happy --- Angry');
-ylabel('Performance');
+ylabel('IsAngry');
 title('Psychometric function');
 writetable(data, ParticipantID)
 % Clean up
